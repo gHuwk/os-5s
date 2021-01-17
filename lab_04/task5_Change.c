@@ -4,58 +4,81 @@
 #include <unistd.h>
 #include <string.h>
 
-typedef int flag_s;
+#define SIZE_RES 36
+#define SIZE_MSG_F 17
+#define SIZE_MSG_S 19
 
-#define CNT 2
-#define SIZE_MSG_F 19
-#define SIZE_MSG_S 21
-#define SIZE_RES 41
+typedef int flag_s;
 
 flag_s sigflag = 0;
 void sigcatcher(int signum)
 {
-  printf("\nSignal number %d cathed!\n", signum);
-  sigflag = 1;
+    printf("\nSignal number %d cathed!\n", signum);
+    sigflag = 1;
 }
 
+// descr он же fd - имеет два дескрипора 0 - для чтения, 1 - для записи
 int main()
 {
+  // устанавливаем реакцию на сигнал, вызываемую функцию
   signal(SIGTSTP, sigcatcher);
-  int descr[CNT]; // Дескриптор одного программного канала
-  //[0] - выход для чтения, [1] - выход для записи
-  // потомок унаследует открытый программный канал предка
+  // массив файловых дескрипторов
+  int descr[2];
+
   if (pipe(descr) == -1)
   {
-    printf("Can`t open canal.\n");
+    printf("Can`t pipe\n"); // Не удалось
     return 1;
   }
 
-  char result[41];
-  pid_t first_childpid, second_childpid;
+  // массива результата
+  char result_data[SIZE_RES];
+  pid_t second_childpid;
+  pid_t first_childpid = fork(); // форкаем
 
-  first_childpid = fork();
   if (first_childpid == -1)
   {
-  // Не был получен потомок
     perror("Can`t fork.\n");
-    return 1;
+    return 1; // Не вышло
   }
   else if (first_childpid == 0)
   {
-    if (sigflag)
+    // Находимся в первом потомке
+    if (!sigflag) // Если ни разу сигнала не было, то выводим
     {
-      // потомок ничего не  прочтет в канале
-      close(descr[0]);
-      if (!write(descr[1], "Wow! message first\n", 19))
-      {
-        printf("Can`t write string\n");
-        return 1;
-      }
+        printf("You have 5 second to use Ctrl+Z\n");
+        sleep(5);
+    }
+    // Если все же за этот момент времени сигнал поступил
+    //if (sigflag)
+    else
+    {
+        //Пишем в канал
+        close(descr[0]); // Из канала читать нельзя, если в него пишут
+                         // в канал пистать нельзя, если его читают
+        if (!write(descr[1], "Bark! from first\n", SIZE_MSG_F))
+        {
+          printf("Can`t write string\n");
+          return 1;
+        }
+        else
+            printf("String writed from first!\n");
     }
     return 0;
   }
   else
   {
+    int status;
+    first_childpid = wait(&status);
+    printf("1st child has finished:\n\tPID = %d\n", first_childpid);
+
+    if (WIFEXITED(status))
+      printf("1st child exited with code %d\n", WEXITSTATUS(status));
+    else if (WIFSIGNALED(status))
+      printf("1st child exited with signal number %d\n", WTERMSIG(status));
+    else if (WIFSTOPPED(status))
+      printf("1st child exited with signal number %d\n", WSTOPSIG(status));
+
     if ((second_childpid = fork()) == -1)
     {
       perror("Can`t fork.\n");
@@ -65,43 +88,20 @@ int main()
     {
       if (sigflag)
       {
-        // потомок ничего не прочтет из канала
-        close(descr[0]);
-        if (!write(descr[1], "Wow! message second\n", 21))
-        {
-          printf("Can`t write string\n");
-          return 1;
-        }
+          close(descr[0]);
+          if (!write(descr[1], "Bark! from second\n", SIZE_MSG_S))
+          {
+            printf("Can`t write string\n");
+            return 1;
+          }
+          else
+            printf("String writed from second!\n");
       }
       return 0;
     }
-   // вот тут предок
-    printf("You have 5 second to use Ctrl+Z\n");
-
-    sleep(5);
-
-    close(descr[1]);
-    if (read(descr[0], result, SIZE_RES) < 0)
-    {
-      printf("Can`t read string\n");
-      return 1;
-    }
-
-    printf("%s", result);
-
-    int status;
-    first_childpid = wait(&status);
-    printf("1st child has finished: PID = %d\n", first_childpid);
-
-    if (WIFEXITED(status))
-      printf("1st child exited with code %d\n", WEXITSTATUS(status));
-    else if (WIFSIGNALED(status))
-      printf("1st child exited with signal number %d\n", WTERMSIG(status));
-    else if (WIFSTOPPED(status))
-      printf("1st child exited with signal number %d\n", WSTOPSIG(status));
 
     second_childpid = wait(&status);
-    printf("2nd child has finished: PID = %d\n", second_childpid);
+    printf("2nd child has finished:\n\tPID = %d\n", second_childpid);
 
     if (WIFEXITED(status))
       printf("2nd child exited with code %d\n", WEXITSTATUS(status));
@@ -109,6 +109,23 @@ int main()
       printf("2nd child exited with signal number %d\n", WTERMSIG(status));
     else if (WIFSTOPPED(status))
       printf("2nd child exited with signal number %d\n", WSTOPSIG(status));
+
+    if (sigflag)
+    {
+        close(descr[1]);
+        if (read(descr[0], result_data, SIZE_RES) < 0)
+        {
+          printf("Can`t read string\n");
+          return 1;
+        }
+    }
+    else
+    {
+        strcpy(result_data,"Time is out!\n\n");
+    }
+
+    printf("%s", result_data);
+
     return 0;
   }
 }

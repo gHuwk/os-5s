@@ -6,7 +6,6 @@
 int main()
 {
   pid_t first_childpid, second_childpid;
-
   first_childpid = fork();
 
   if (first_childpid == -1)

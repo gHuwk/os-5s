@@ -6,7 +6,7 @@
 
 typedef int flag_s;
 
-#define CNT 2
+
 #define SIZE_MSG_F 19
 #define SIZE_MSG_S 21
 #define SIZE_RES 41
@@ -20,8 +20,9 @@ void sigcatcher(int signum)
 
 int main()
 {
+  // устанавливаем реакцию на сигнал, вызываемую функцию
   signal(SIGTSTP, sigcatcher);
-  int descr[CNT]; // Дескриптор одного программного канала
+  int descr[2]; // Дескриптор одного программного канала
   //[0] - выход для чтения, [1] - выход для записи
   // потомок унаследует открытый программный канал предка
   if (pipe(descr) == -1)
@@ -87,7 +88,7 @@ int main()
     {
       strcpy(result,"Time is out!\n\n");
     }
-
+    // Предок читает
     printf("%s", result);
 
     int status;

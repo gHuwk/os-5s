@@ -3,92 +3,99 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define CNT 2
-#define SIZE_RES 41
+#define SIZE_RES 36
 #define SIZE_MSG_F 17
 #define SIZE_MSG_S 19
 
 
+// descr он же fd - имеет два дескрипора 0 - для чтения, 1 - для записи
 int main()
 {
-  int descr[CNT];
+  // массив файловых дескрипторов
+  int descr[2];
 
   if (pipe(descr) == -1)
   {
-    printf("Can`t pipe\n");
+    printf("Can`t pipe\n"); // Не удалось
     return 1;
   }
 
+  // массива результата
   char result_data[SIZE_RES];
-
   pid_t second_childpid;
-  pid_t first_childpid = fork();
-  
+  pid_t first_childpid = fork(); // форкаем
+
   if (first_childpid == -1)
   {
-    perror("Can`t fork.\n"); 
-    return 1;        
+    perror("Can`t fork.\n");
+    return 1; // Не вышло
   }
   else if (first_childpid == 0)
   {
-    close(descr[0]);
+    // Находимся в первом потомке
+    close(descr[0]); // Из канала читать нельзя, если в него пишут
+                     // в канал пистать нельзя, если его читают
     if (!write(descr[1], "Bark! from first\n", SIZE_MSG_F))
-    {  
+    {
       printf("Can`t write string\n");
       return 1;
     }
-
+    else
+        printf("String writed from first!\n");
+    sleep(2);
     return 0;
   }
   else
   {
     int status;
     first_childpid = wait(&status);
-    printf("1st child has finished:\n\tPID = %d\n", first_childpid); 
+    printf("1st child has finished:\n\tPID = %d\n", first_childpid);
 
     if (WIFEXITED(status))
       printf("1st child exited with code %d\n", WEXITSTATUS(status));
     else if (WIFSIGNALED(status))
-      printf("1st child exited with signal number %d\n", WTERMSIG(status)); 
+      printf("1st child exited with signal number %d\n", WTERMSIG(status));
     else if (WIFSTOPPED(status))
-      printf("1st child exited with signal number %d\n", WSTOPSIG(status));    
+      printf("1st child exited with signal number %d\n", WSTOPSIG(status));
 
     if ((second_childpid = fork()) == -1)
     {
-      perror("Can`t fork.\n"); 
-      return 1; 
+      perror("Can`t fork.\n");
+      return 1;
     }
     else if (second_childpid == 0)
     {
       close(descr[0]);
       if (!write(descr[1], "Bark! from second\n", SIZE_MSG_S))
-      {  
+      {
         printf("Can`t write string\n");
         return 1;
       }
-
+      else
+        printf("String writed from second!\n");
+      sleep(2);
       return 0;
     }
 
     second_childpid = wait(&status);
     printf("2nd child has finished:\n\tPID = %d\n", second_childpid);
-        
+
     if (WIFEXITED(status))
       printf("2nd child exited with code %d\n", WEXITSTATUS(status));
     else if (WIFSIGNALED(status))
-      printf("2nd child exited with signal number %d\n", WTERMSIG(status)); 
+      printf("2nd child exited with signal number %d\n", WTERMSIG(status));
     else if (WIFSTOPPED(status))
-      printf("2nd child exited with signal number %d\n", WSTOPSIG(status));   
+      printf("2nd child exited with signal number %d\n", WSTOPSIG(status));
 
     close(descr[1]);
     if (read(descr[0], result_data, SIZE_RES) < 0)
-    {  
+    {
       printf("Can`t read string\n");
       return 1;
     }
 
     printf("%s", result_data);
-    
+
     return 0;
   }
 }
