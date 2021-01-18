@@ -27,7 +27,7 @@ stack_seg 	ENDS
 ; сегмент данных 
 data_seg segment para 'DATA'
 
-    gdt_null  descr <>
+    gdt_null  descr <> ; обязательный нулевой дескриптор
     gdt_CS_16bit descr <rm_code_size-1, 0, 0, 10011000b, 00000000b, 0>
     gdt_DS_16bit descr <0FFFFh, 0, 0, 10010010b, 10001111b, 0>
     gdt_CS_32bit descr <pm_code_size-1, 0, 0, 10011000b, 01000000b, 0>    
